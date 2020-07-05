@@ -1,5 +1,7 @@
 package com.abcode.reddit.redditclone.service;
 
+import com.abcode.reddit.redditclone.dto.AuthenticationResponse;
+import com.abcode.reddit.redditclone.dto.LoginRequest;
 import com.abcode.reddit.redditclone.dto.RegisterRequest;
 import com.abcode.reddit.redditclone.exceptions.RedditException;
 import com.abcode.reddit.redditclone.model.NotificationEmail;
@@ -7,26 +9,32 @@ import com.abcode.reddit.redditclone.model.User;
 import com.abcode.reddit.redditclone.model.VerificationToken;
 import com.abcode.reddit.redditclone.repository.UserRepository;
 import com.abcode.reddit.redditclone.repository.VerificationTokenRepository;
+import com.abcode.reddit.redditclone.security.JwtProvider;
 import lombok.AllArgsConstructor;
 import lombok.var;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import javax.transaction.Transactional;
+import  org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @AllArgsConstructor
+@Transactional
 public class AuthService {
 
     private PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
-    private final VerificationTokenRepository tokenRepository;
     private final MailService mailService;
+    private final AuthenticationManager authenticationManager;
     private final VerificationTokenRepository verificationTokenRepository;
+    private final JwtProvider jwtProvider;
+    private final RefreshTokenService refreshTokenService;
 
     @Transactional
     public void signup(RegisterRequest registerRequest) {
@@ -49,10 +57,11 @@ public class AuthService {
         VerificationToken verificationToken = new VerificationToken();
         verificationToken.setToken(token);
         verificationToken.setUser(user);
-        tokenRepository.save(verificationToken);
+        verificationTokenRepository.save(verificationToken);
         return token;
     }
 
+    @Transactional
     private void fetchUserAndEnable(VerificationToken verificationToken) {
         String username = verificationToken.getUser().getUsername();
         User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found with name - " + username));
@@ -63,5 +72,12 @@ public class AuthService {
     public void verifyAccount(String token) {
         Optional<VerificationToken> verificationToken = verificationTokenRepository.findByToken(token);
         fetchUserAndEnable(verificationToken.orElseThrow(() -> new RedditException("Invalid Token")));
+    }
+
+    public AuthenticationResponse login (LoginRequest loginRequest){
+        Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+        SecurityContextHolder.getContext().setAuthentication(authenticate);
+        String token = jwtProvider.generateToken(authenticate);
+        return new AuthenticationResponse(token,loginRequest.getUsername());
     }
 }
