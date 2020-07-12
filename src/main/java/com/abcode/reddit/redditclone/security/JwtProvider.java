@@ -52,18 +52,18 @@ public class JwtProvider {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(from(Instant.now()))
-                .signWith(getPrivateKey())
+                //.signWith(getPrivateKey())
                 .setExpiration(Date.from(Instant.now().plusMillis(jwtExpirationInMillis)))
                 .compact();
     }
 
-    private PrivateKey getPrivateKey() {
-        try {
-            return (PrivateKey) keyStore.getKey("springblog", "secret".toCharArray());
-        } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException e) {
-            throw new RedditException("Exception occured while retrieving public key from keystore", e);
-        }
-    }
+//    private PrivateKey getPrivateKey() {
+//        try {
+//            return (PrivateKey) keyStore.getKey("springblog", "secret".toCharArray());
+//        } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException e) {
+//            throw new RedditException("Exception occured while retrieving public key from keystore", e);
+//        }
+//    }
 
     public boolean validateToken(String jwt) {
         parser().setSigningKey(getPublickey()).parseClaimsJws(jwt);
